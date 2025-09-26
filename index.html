@@ -128,7 +128,13 @@
     <tr class="border-b last:border-0">
       <td class="p-2 align-middle indexCell"></td>
       <td class="p-2 align-middle">
-        <input type="text" list="rosterDatalist" placeholder="Employee name" class="nameInput w-full rounded-lg border-slate-300 px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+        <div class="flex items-center gap-2">
+          <input type="text" list="rosterDatalist" placeholder="Employee name" class="nameInput flex-1 rounded-lg border-slate-300 px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+          <!-- iPhone fallback: native select as a picker -->
+          <select class="rosterSelect shrink-0 rounded-lg border-slate-300 px-2 py-1 text-sm bg-slate-50">
+            <option value="">Pick…</option>
+          </select>
+        </div>
       </td>
       <td class="p-2 text-center align-middle">
         <label class="inline-flex items-center gap-2">
@@ -171,6 +177,8 @@
     }
 
     // --- Local Storage Keys ---
+    // iPhone Safari note: <datalist> suggestions may only appear after typing a character.
+    // We provide a native <select> picker as a fallback for quick taps.
     const LS_KEYS = {
       ROSTER: 'timecard_roster_v1',
       DAY: 'timecard_day_v1'
@@ -190,7 +198,7 @@
         const del = document.createElement('button');
         del.className = 'text-xs px-2 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100';
         del.textContent = 'Remove';
-        del.onclick = ()=>{ roster.splice(idx,1); saveRoster(); };
+        del.onclick = ()=>{ roster.splice(idx,1); saveRoster(); refreshAllRosterSelects(); };
         li.appendChild(del);
         ul.appendChild(li);
       });
@@ -198,6 +206,7 @@
     function renderRosterDatalist(){
       const dl = $('#rosterDatalist');
       dl.innerHTML = roster.map(n=>`<option value="${n}"></option>`).join('');
+      refreshAllRosterSelects();
     }
 
     // --- Day Data ---
@@ -238,6 +247,7 @@
       const endInput = $('.endInput', tr);
       const hoursCell = $('.hoursCell', tr);
       const deleteBtn = $('.deleteBtn', tr);
+      const rosterSelect = $('.rosterSelect', tr);
 
       // Prefill if provided
       if(row){
@@ -246,6 +256,18 @@
         startInput.value = row.start || '';
         endInput.value = row.end || '';
       }
+
+      // Populate roster select for this row
+      populateRosterSelect(rosterSelect);
+
+      // When user picks from select, set name input and reset select
+      rosterSelect.addEventListener('change', ()=>{
+        if(rosterSelect.value){
+          nameInput.value = rosterSelect.value;
+          rosterSelect.value = '';
+          persist();
+        }
+      });
 
       function onChange(){
         const hrs = diffHours(startInput.value, endInput.value);
@@ -299,6 +321,16 @@
     function recalcTotals(){
       const total = $$('#rows .hoursCell').reduce((sum,td)=> sum + (parseFloat(td.textContent)||0), 0);
       $('#totalHours').textContent = fmtHours(total);
+    }
+
+    // --- Roster Select Helpers ---
+    function populateRosterSelect(selectEl){
+      const current = selectEl.value;
+      selectEl.innerHTML = '<option value="">Pick…</option>' + roster.map(n=>`<option value="${n}">${n}</option>`).join('');
+      if(current && roster.includes(current)) selectEl.value = current; else selectEl.value = '';
+    }
+    function refreshAllRosterSelects(){
+      $$('.rosterSelect').forEach(populateRosterSelect);
     }
 
     // --- Exports ---
@@ -390,6 +422,20 @@
 
     // --- Event bindings ---
     $('#addRowBtn').onclick = addEmptyRow;
+    // Bulk Add dialog bindings
+    $('#bulkAddBtn').onclick = ()=>{ refreshBulkList(); document.getElementById('bulkDialog').showModal(); };
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && document.getElementById('bulkDialog').open){ document.getElementById('bulkDialog').close(); }});
+    document.getElementById('bulkSearch').addEventListener('input', refreshBulkList);
+    document.getElementById('bulkSelectAll').onclick = ()=>{ $$('.bulkBox', document.getElementById('bulkDialog')).forEach(b=> b.checked = true); };
+    document.getElementById('bulkClearAll').onclick = ()=>{ $$('.bulkBox', document.getElementById('bulkDialog')).forEach(b=> b.checked = false); };
+    document.getElementById('bulkAddConfirm').onclick = ()=>{
+      const names = getBulkSelected();
+      const start = document.getElementById('bulkStart').value;
+      const end = document.getElementById('bulkEnd').value;
+      if(!names.length){ alert('Pick at least one name.'); return; }
+      bulkAddRows(names, start || undefined, end || undefined);
+      document.getElementById('bulkDialog').close();
+    };
     $('#clearDayBtn').onclick = ()=>{
       if(confirm('Clear all rows for this date?')){
         $('#rows').innerHTML='';
@@ -429,6 +475,7 @@
       renderRoster();
       renderRosterDatalist();
       renderDay();
+      refreshAllRosterSelects();
     })();
   </script>
 </body>
