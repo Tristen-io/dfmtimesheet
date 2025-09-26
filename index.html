@@ -422,20 +422,40 @@
 
     // --- Event bindings ---
     $('#addRowBtn').onclick = addEmptyRow;
-    // Bulk Add dialog bindings
-    $('#bulkAddBtn').onclick = ()=>{ refreshBulkList(); document.getElementById('bulkDialog').showModal(); };
-    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && document.getElementById('bulkDialog').open){ document.getElementById('bulkDialog').close(); }});
-    document.getElementById('bulkSearch').addEventListener('input', refreshBulkList);
-    document.getElementById('bulkSelectAll').onclick = ()=>{ $$('.bulkBox', document.getElementById('bulkDialog')).forEach(b=> b.checked = true); };
-    document.getElementById('bulkClearAll').onclick = ()=>{ $$('.bulkBox', document.getElementById('bulkDialog')).forEach(b=> b.checked = false); };
-    document.getElementById('bulkAddConfirm').onclick = ()=>{
-      const names = getBulkSelected();
-      const start = document.getElementById('bulkStart').value;
-      const end = document.getElementById('bulkEnd').value;
-      if(!names.length){ alert('Pick at least one name.'); return; }
-      bulkAddRows(names, start || undefined, end || undefined);
-      document.getElementById('bulkDialog').close();
-    };
+
+    // --- Safe bulk-dialog bindings (won't break if elements are missing/cached) ---
+    const bulkDialogEl = document.getElementById('bulkDialog');
+    const bulkAddBtnEl = document.getElementById('bulkAddBtn');
+    const bulkSearchEl = document.getElementById('bulkSearch');
+    const bulkSelectAllEl = document.getElementById('bulkSelectAll');
+    const bulkClearAllEl = document.getElementById('bulkClearAll');
+    const bulkAddConfirmEl = document.getElementById('bulkAddConfirm');
+
+    if (bulkAddBtnEl && bulkDialogEl) {
+      bulkAddBtnEl.onclick = () => { refreshBulkList(); bulkDialogEl.showModal(); };
+    }
+    if (bulkDialogEl) {
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bulkDialogEl.open) bulkDialogEl.close(); });
+    }
+    if (bulkSearchEl) {
+      bulkSearchEl.addEventListener('input', refreshBulkList);
+    }
+    if (bulkSelectAllEl && bulkDialogEl) {
+      bulkSelectAllEl.onclick = () => { $$('.bulkBox', bulkDialogEl).forEach(b => b.checked = true); };
+    }
+    if (bulkClearAllEl && bulkDialogEl) {
+      bulkClearAllEl.onclick = () => { $$('.bulkBox', bulkDialogEl).forEach(b => b.checked = false); };
+    }
+    if (bulkAddConfirmEl && bulkDialogEl) {
+      bulkAddConfirmEl.onclick = () => {
+        const names = getBulkSelected();
+        const start = document.getElementById('bulkStart')?.value;
+        const end = document.getElementById('bulkEnd')?.value;
+        if (!names.length) { alert('Pick at least one name.'); return; }
+        bulkAddRows(names, start || undefined, end || undefined);
+        bulkDialogEl.close();
+      };
+    }
     $('#clearDayBtn').onclick = ()=>{
       if(confirm('Clear all rows for this date?')){
         $('#rows').innerHTML='';
